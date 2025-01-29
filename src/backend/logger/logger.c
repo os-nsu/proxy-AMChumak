@@ -1,6 +1,5 @@
 #include "../../include/logger.h"
 #include "../../include/my_time.h"
-#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
