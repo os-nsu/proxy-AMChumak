@@ -48,7 +48,7 @@ enum OutputStream { STDOUT = 1, STDERR, FILESTREAM };
     infinity). This parameter wouldn't be checked if path is NULL.
     \return 0 if success, -1 and sets errno if error
 */
-int init_logger(char *path, long file_size_limit, int files_limit);
+int init_logger(const char *path, long file_size_limit, int files_limit);
 
 /*!
     Function frees logger's data structures
@@ -69,5 +69,8 @@ void fini_logger(void);
  */
 void write_log(enum OutputStream stream, enum LogLevel level,
                const char *filename, int line_number, const char *format, ...);
+
+
+
 
 #endif  //LOGGER_H

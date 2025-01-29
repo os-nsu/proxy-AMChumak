@@ -2,7 +2,6 @@ export MAINDIR = $(CURDIR)
 
 export COPT := ${COPT} -g
 export CFLAGS := ${CFLAGS} -export-dynamic -Wall -Wextra -Werror
-export LDFLAGS := ${LDFLAGS} -L./install/ -ldl -lconfig -llogger
 export CPPFLAGS := ${CPPFLAGS}
 
 export CC = gcc
