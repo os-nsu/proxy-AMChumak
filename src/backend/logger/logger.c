@@ -14,78 +14,21 @@
     \brief struct that describes info needed for logging session
 */
 struct LoggerData {
-    long file_size_limit;
-    int files_limit;
-    int file_num;
-    char *directory;
+    char *path;
     FILE *session;
     int is_initialized;
 };
 
-struct LoggerData logger_state = {0, 0, 0, NULL, NULL, 0}; // singleton
+struct LoggerData logger_state = {NULL, NULL, 0}; // singleton
 
-/*!
-    \brief allocated and fill string for parent dir name
-    \param [in] dir path to directory
-    \return allocated string with parent directory name
-*/
-char *get_parent_dir(const char *path);
 
-void get_next_word(
-    const char *path, int pos, int *left,
-    int *right) { // return name without '/' (exception: root "/")
-    int right_border = pos - 1;
-    int left_border = right_border - 1;
-
-    while (left_border >= 0 && path[left_border] != '/') {
-        left_border--;
-    }
-    left_border++;
-
-    if (left_border != right_border && path[right_border] == '/') {
-        right_border--;
-    }
-
-    *left = left_border;
-    *right = right_border;
-}
-
-char *get_parent_dir(const char *path) {
-    int path_len = strlen(path);
-    int right_border = path_len;
-    int left_border = path_len;
-    get_next_word(path, path_len, &left_border, &right_border);
-    int del_border = left_border;
-
-    while (!strncmp(path + left_border, ".", right_border - left_border + 1) &&
-           left_border > 0) {
-        get_next_word(path, del_border, &left_border, &right_border);
-        del_border = left_border;
-    }
-
-    if (left_border == 0) {
-        if (path[left_border] == '/') {
-            char *result = malloc(sizeof(char) * 2);
-            return strcpy(result, "/");
-        } else if (!strncmp(path, ".", right_border - left_border + 1)) {
-            char *result = malloc(sizeof(char) * 4);
-            return strcpy(result, "../");
-        }
-        char *result = malloc(sizeof(char) * 3);
-        return strcpy(result, "./");
-    }
-
-    char *result = calloc(del_border + 1, sizeof(char));
-    return strncpy(result, path, del_border);
-}
-
-int init_logger(const char *path, long file_size_limit, int files_limit) {
+int init_logger(const char *path) {
     if (logger_state.is_initialized)
         return -1;
 
     if (!path) {
         logger_state.is_initialized = 1;
-        logger_state.directory = NULL;
+        logger_state.path = NULL;
         return 0;
     }
 
@@ -104,11 +47,8 @@ int init_logger(const char *path, long file_size_limit, int files_limit) {
     }
 
     // create structure
-    logger_state.directory = (char *)calloc((strlen(path) + 1), sizeof(char));
-    strcpy(logger_state.directory, path);
-    logger_state.file_num = 0;
-    logger_state.file_size_limit = file_size_limit;
-    logger_state.files_limit = files_limit;
+    logger_state.path = (char *)calloc((strlen(path) + 1), sizeof(char));
+    strcpy(logger_state.path, path);
     logger_state.is_initialized = 1;
 
     return 0;
@@ -151,4 +91,10 @@ void write_log(enum OutputStream stream, enum LogLevel level,
     va_end(ptr);
     fprintf(logger_state.session, "\n");
     fflush(logger_state.session);
+}
+
+void fini_logger(void) {
+    fclose(logger_state.session);
+    free(logger_state.path);
+    logger_state.is_initialized = 0;
 }
