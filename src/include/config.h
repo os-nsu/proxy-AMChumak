@@ -75,6 +75,8 @@ typedef struct ConfigVariable {
 */
 int create_config_table(void);
 
+void destroy_variable(ConfigVariable *var);
+
 /*!
     Destroy config table and frees all resources associated with it. It should
    be called once.
