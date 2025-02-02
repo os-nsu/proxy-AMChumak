@@ -53,7 +53,7 @@ int init_logger(char *path, long file_size_limit, int files_limit);
 /*!
     Function frees logger's data structures
 */
-void fini_logger(void);
+int fini_logger(void);
 
 /*!
     This function write message to .log file with specified format (see file

@@ -305,5 +305,5 @@ int main(int argc, char **argv) {
 error_termination:
     close_plugins(plugins);
     free(plugins);
-    return 1;
+    return -1;
 }
