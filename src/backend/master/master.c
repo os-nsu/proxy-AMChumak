@@ -273,7 +273,7 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
 int main(int argc, char **argv) {
     struct PluginsStack *plugins = init_plugins_stack(100);
 
-    if (init_logger(NULL, -1, -1)) {
+    if (init_logger(NULL)) {
         fprintf(stderr, "Failed to initialize the logger\n");
         goto error_termination;
     }
@@ -283,9 +283,7 @@ int main(int argc, char **argv) {
         goto error_termination;
     }
 
-    if (argc > 0)
-        printf("%s\n", argv[0]);
-    else
+    if (argc <= 0)
         goto error_termination;
 
     char *greeting_name = "greeting";
