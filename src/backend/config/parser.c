@@ -250,7 +250,7 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                 count_values++;
                 if (count_values > 1)
                     values.real =
-                        realloc(values.integer, sizeof(double) * count_values);
+                        realloc(values.real, sizeof(double) * count_values);
                 else
                     values.real = malloc(sizeof(double) * count_values);
                 values.real[count_values - 1] =

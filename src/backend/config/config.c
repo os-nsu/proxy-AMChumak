@@ -171,12 +171,16 @@ ConfigVariable copy_variable(const ConfigVariable var) {
         break;
     }
     case REAL: {
-        result.data = (ConfigData)(double *)malloc(result.count * sizeof(double));
+        result.data =
+            (ConfigData)(double *)malloc(result.count * sizeof(double));
         memcpy(result.data.real, var.data.real, result.count * sizeof(double));
         break;
     }
     case STRING: {
-        result.data = (ConfigData)(char **)malloc(result.count * sizeof(char *));
+        write_log(STDERR, LOG_DEBUG, "config.c", __LINE__,
+                  "aaaaaaaaaaaaaaaaaa %s", var.data.string[0]);
+        result.data =
+            (ConfigData)(char **)malloc(result.count * sizeof(char *));
         for (int i = 0; i < result.count; i++) {
             result.data.string[i] =
                 (char *)calloc(strlen(var.data.string[i]) + 1, sizeof(char));
@@ -208,6 +212,8 @@ int define_variable(const ConfigVariable variable) {
         if (!strcmp(prev_node->variable.name, variable.name))
             return -1;
     }
+    if (!strcmp(prev_node->variable.name, variable.name))
+            return -1;
     write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "found place");
     ConfigNode *new_node = malloc(sizeof(ConfigNode));
     new_node->next = NULL;
@@ -234,12 +240,16 @@ ConfigVariable get_variable(const char *name) {
 
 int set_variable(const ConfigVariable variable) {
     unsigned long hash = hash_string(variable.name) % g_config.size;
-
+    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "hashed %s",
+              variable.data.string[0]);
     ConfigNode *prev_node = g_config.table[hash];
     if (!prev_node) {
         g_config.table[hash] = malloc(sizeof(ConfigNode));
         g_config.table[hash]->next = NULL;
         g_config.table[hash]->variable = copy_variable(variable);
+        write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "copied var %s",
+                  g_config.table[hash]->variable.data.string[0]);
+        return 0;
     }
 
     while (prev_node->next) {
@@ -249,10 +259,14 @@ int set_variable(const ConfigVariable variable) {
         return 0;
     }
 
-    ConfigNode *new_node = malloc(sizeof(ConfigNode));
-    new_node->next = NULL;
-    new_node->variable = copy_variable(variable);
-    prev_node->next = new_node;
+    if (!strcmp(prev_node->variable.name, variable.name)) {
+        prev_node->variable = copy_variable(variable);
+    } else {
+        ConfigNode *new_node = malloc(sizeof(ConfigNode));
+        new_node->next = NULL;
+        new_node->variable = copy_variable(variable);
+        prev_node->next = new_node;
+    }
 
     return 0;
 }

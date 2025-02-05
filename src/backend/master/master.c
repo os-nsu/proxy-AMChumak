@@ -2,6 +2,7 @@
 #include "../../include/config.h"
 #include "../../include/logger.h"
 #include <dlfcn.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -270,6 +271,99 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
     return 0;
 }
 
+/*!
+    \brief Loads plugins
+    \param[in] argc arguments count
+    \param[in] argv arguments
+    \param[out] params parsed arguments
+    \return 0 if success, -1 else
+*/
+int parse_args(int argc, char *argv[]) {
+    const struct option long_opts[] = {
+        {"config", required_argument, NULL, 'c'},
+        {"logs", required_argument, NULL, 'l'},
+        {"plugins", required_argument, NULL, 'p'},
+        {NULL, 0, 0, 0}};
+    const char *short_opts = "c:l:p:";
+    int cur_opt;
+    while ((cur_opt = getopt_long(argc, argv, short_opts, long_opts, NULL)) !=
+           -1) {
+        switch (cur_opt) {
+        case ('c'): {
+            ConfigVariable variable = {"config", NULL, {(long int *)&optarg}, STRING, 1};
+            set_variable(variable);
+            break;
+        }
+        case ('l'): {
+            ConfigVariable variable = {"logs", NULL, {(long int *)&optarg}, STRING, 1};
+            set_variable(variable);
+            break;
+        }
+        default: {
+            return -1;
+        }
+        }
+    }
+    return 0;
+}
+
+/*!
+    \brief gets config parameters from env
+    \return 0 if SUCCESS, -1 else
+*/
+int parse_envs(void) {
+    char *config_path = getenv("PROXY_CONFIG_PATH");
+
+    if (config_path) {
+        write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "read path %s", config_path);
+        ConfigVariable variable = {"config", NULL, {(long int *)&config_path}, STRING, 1};
+        set_variable(variable);
+    }
+
+    char *log_path = getenv("PROXY_LOG_PATH");
+
+    if (log_path) {
+        ConfigVariable variable = {"logs", NULL, {(long int *)&log_path}, STRING, 1};
+        set_variable(variable);
+    }
+
+    char *plugins_list_env = getenv("PROXY_MASTER_PLUGINS");
+
+    if (plugins_list_env) {
+        char *plugins_list = strdup(plugins_list_env);
+        char **plugins = malloc(sizeof(char*));
+        int cnt = 0;
+        char *plugin = strtok(plugins_list, ",");
+        while (plugin) {
+            cnt++;
+            plugins = realloc(plugins, cnt * sizeof(char *));
+            plugins[cnt-1] = strdup(plugin);
+        }
+        free(plugins_list);
+        ConfigVariable variable = {"plugins", NULL, {(long int *)plugins}, STRING, cnt};
+        set_variable(variable);
+    }
+    return 0;
+};
+
+/*!
+    \brief initializes standard values
+    \return 0 if success, -1 else
+*/
+int init_config_values(char *exec_path) {
+    const char *std_config_path = "../proxy.conf";
+    char *config_path = create_path_from_call_dir(exec_path, std_config_path);
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "created path %s", config_path);
+    ConfigVariable variable = {"config", NULL, {(long int *)&config_path}, STRING, 1};
+    set_variable(variable);
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "set config file variable");
+    free(config_path);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     struct PluginsStack *plugins = init_plugins_stack(100);
 
@@ -283,20 +377,38 @@ int main(int argc, char **argv) {
         goto error_termination;
     }
 
-    parse_config("./proxy.conf");
-
     if (argc <= 0)
         goto error_termination;
+    // set standard values
+    init_config_values(argv[0]);
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "set_std_values");
+    // set config values from command line
+    parse_args(argc, argv);
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "parsed cmd flags");
+
+    //set config variables from env
+    parse_envs();
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "parsed envs");
+
+    // read config
+    ConfigVariable config_var = get_variable("config");
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "read config file %s", config_var.data.string[0]);
+    parse_config(config_var.data.string[0]);
+    destroy_variable(&config_var);
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
+                  "parsed config file");
 
     char *greeting_name = "greeting";
     char **plugin_names = &greeting_name;
-
 
     load_plugins(plugin_names, 1, NULL, plugins, argv[0]);
 
     if (executor_start_hook)
         executor_start_hook();
-
 
     close_plugins(plugins);
     free(plugins);
