@@ -134,13 +134,29 @@ int destroy_config_table(void) {
 
 ConfigVariable copy_variable(const ConfigVariable var) {
     ConfigVariable result;
-    result.name = (char *)calloc(strlen(var.name) + 1, sizeof(char));
-    strcpy(result.name, var.name);
-    result.description =
-        (char *)calloc(strlen(var.description) + 1, sizeof(char));
-    strcpy(result.description, var.description);
+    if (var.name) {
+        result.name = (char *)calloc(strlen(var.name) + 1, sizeof(char));
+        strcpy(result.name, var.name);
+    } else {
+        result.name = NULL;
+    }
+
+    if (var.description) {
+        result.description =
+            (char *)calloc(strlen(var.description) + 1, sizeof(char));
+        strcpy(result.description, var.description);
+    } else {
+        result.description = NULL;
+    }
+
     result.count = var.count;
     result.type = var.type;
+
+    if (!var.data.integer) {
+        result.data.integer = NULL;
+        return result;
+    }
+
     switch (result.type) {
 
     case UNDEFINED: {
@@ -149,18 +165,18 @@ ConfigVariable copy_variable(const ConfigVariable var) {
     }
     case INTEGER: {
         result.data =
-            (ConfigData)(int64_t *)malloc(var.count * sizeof(int64_t));
+            (ConfigData)(int64_t *)malloc(result.count * sizeof(int64_t));
         memcpy(result.data.integer, var.data.integer,
-               var.count * sizeof(int64_t));
+               result.count * sizeof(int64_t));
         break;
     }
     case REAL: {
-        result.data = (ConfigData)(double *)malloc(var.count * sizeof(double));
-        memcpy(result.data.real, var.data.real, var.count * sizeof(double));
+        result.data = (ConfigData)(double *)malloc(result.count * sizeof(double));
+        memcpy(result.data.real, var.data.real, result.count * sizeof(double));
         break;
     }
     case STRING: {
-        result.data = (ConfigData)(char **)malloc(var.count * sizeof(char *));
+        result.data = (ConfigData)(char **)malloc(result.count * sizeof(char *));
         for (int i = 0; i < result.count; i++) {
             result.data.string[i] =
                 (char *)calloc(strlen(var.data.string[i]) + 1, sizeof(char));
@@ -173,22 +189,26 @@ ConfigVariable copy_variable(const ConfigVariable var) {
 }
 
 int define_variable(const ConfigVariable variable) {
+    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "hashed name is %s %d",
+              variable.name, g_config.size);
     unsigned long hash = hash_string(variable.name) % g_config.size;
 
     // check and push
-
+    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "start saving variable");
     ConfigNode *prev_node = g_config.table[hash];
+    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "checked hash table");
     if (!prev_node) {
         g_config.table[hash] = malloc(sizeof(ConfigNode));
         g_config.table[hash]->next = NULL;
         g_config.table[hash]->variable = copy_variable(variable);
+        return 0;
     }
-
+    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "search place");
     while (prev_node->next) {
         if (!strcmp(prev_node->variable.name, variable.name))
             return -1;
     }
-
+    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "found place");
     ConfigNode *new_node = malloc(sizeof(ConfigNode));
     new_node->next = NULL;
     new_node->variable = copy_variable(variable);

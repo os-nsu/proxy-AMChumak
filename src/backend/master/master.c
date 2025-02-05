@@ -277,13 +277,13 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to initialize the logger\n");
         goto error_termination;
     }
-    write_log(FILESTREAM, LOG_INFO, __FILE__, __LINE__, "hello");
-
 
     if (create_config_table()) {
         fprintf(stderr, "Failed to initialize the config\n");
         goto error_termination;
     }
+
+    parse_config("./proxy.conf");
 
     if (argc <= 0)
         goto error_termination;

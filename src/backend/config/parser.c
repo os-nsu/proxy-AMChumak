@@ -33,6 +33,7 @@
 */
 
 #include "../../include/config.h"
+#include "../../include/logger.h"
 #include <complex.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -66,6 +67,7 @@ int parse_config(const char *path);
 int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                ConfigVarType *rtype) {
     char *cur_sym_ptr = line;
+    write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "start finite machine for line \"%s\"", line);
 
     typedef enum ParsingStates {
         COMMENT = -3,
@@ -103,7 +105,7 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
     ConfigVarType type = 0;
     int cnt_slash = 0;
     ConfigData values;
-    int size = 1;
+    values.integer = NULL;
     int count_values = 0;
     int cur_pos = 0;
     int break_loop = 0;
@@ -113,18 +115,22 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
         char sym = *cur_sym_ptr;
         switch (cur_state) {
         case COMMENT: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "comment");
             break_loop = 3;
             break;
         }
         case ERROR: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "error");
             break_loop = 2;
             break;
         }
         case FINISH: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "finish");
             break_loop = 1;
             break;
         }
         case START: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "start %c", sym);
             if (sym == '\n' || sym == ' ' || sym == '\t') {
                 cur_state = START;
             } else if (sym == '#') {
@@ -139,6 +145,7 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case KEY: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "key %c", sym);
             if (sym == '.') {
                 end_key_pos = cur_pos + 1;
                 key_name = (char *)calloc((end_key_pos - begin_key_pos + 1),
@@ -170,6 +177,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_AFTER_KEY: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_after_key %c", sym);
             if (sym != ' ' && sym != '=') {
                 cur_state = ERROR;
             } else if (sym == '=') {
@@ -178,6 +187,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_BEFORE_VALUES: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_before_values %c", sym);
             if (!((sym >= '0' && sym <= '9') || sym == '\"' || sym == '[' ||
                   sym == ' ')) {
                 cur_state = ERROR;
@@ -196,6 +207,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case VALUE_DIGIT: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "value_digit %c",
+                      sym);
             if (!((sym >= '0' && sym <= '9') || sym == '.' || sym == ' ')) {
                 cur_state = ERROR;
             } else if (sym == '.') {
@@ -213,8 +226,12 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                     begin_cur_val_pos++;
                 }
                 count_values++;
-                values.integer =
-                    realloc(values.integer, sizeof(long long) * count_values);
+                if (count_values > 1)
+                    values.integer = realloc(values.integer,
+                                             sizeof(long long) * count_values);
+                else
+                    values.integer = malloc(sizeof(long long) * count_values);
+
                 values.integer[count_values - 1] =
                     strtoll(line + begin_cur_val_pos, NULL, 10);
                 cur_state = FINISH;
@@ -222,6 +239,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case VALUE_DOUBLE: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "value_double %c", sym);
             if (!((sym >= '0' && sym <= '9') || sym == ' ' || sym == '\t' ||
                   sym == '\n')) {
                 cur_state = ERROR;
@@ -229,8 +248,11 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                 type = REAL;
                 end_cur_val_pos = cur_pos;
                 count_values++;
-                values.real =
-                    realloc(values.integer, sizeof(double) * count_values);
+                if (count_values > 1)
+                    values.real =
+                        realloc(values.integer, sizeof(double) * count_values);
+                else
+                    values.real = malloc(sizeof(double) * count_values);
                 values.real[count_values - 1] =
                     strtod(line + begin_cur_val_pos, NULL);
                 cur_state = FINISH;
@@ -238,6 +260,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case VALUE_STRING: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "value_string %c", sym);
             if (sym == '"') {
                 type = STRING;
                 end_cur_val_pos = cur_pos;
@@ -256,7 +280,11 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                     cnt_sym++;
                 }
                 count_values++;
-                values.string = realloc(values.string, count_values);
+                if (count_values > 1)
+                    values.string =
+                        realloc(values.string, sizeof(char *) * count_values);
+                else
+                    values.string = malloc(sizeof(char *) * count_values);
                 values.string[count_values] = string_value;
 
                 cur_state = FINISH;
@@ -268,11 +296,15 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case VALUE_STRING_SLASH: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "value_string_slash %c", sym);
             cnt_slash++;
             cur_state = VALUE_STRING;
             break;
         }
         case VALUE_ARRAY: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "value_array %c",
+                      sym);
             if (sym != ' ' && sym != '\"' && !(sym >= '0' && sym <= '9')) {
                 cur_state = ERROR;
             } else if (sym >= '0' && sym <= '9') {
@@ -286,6 +318,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_STRING: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "next_string %c",
+                      sym);
             if (sym == '"') {
                 type = STRING;
                 end_cur_val_pos = cur_pos;
@@ -304,8 +338,11 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                     cnt_sym++;
                 }
                 count_values++;
-                values.string =
-                    realloc(values.string, sizeof(char *) * (count_values));
+                if (count_values > 1)
+                    values.string =
+                        realloc(values.string, sizeof(char *) * count_values);
+                else
+                    values.string = malloc(sizeof(char *) * count_values);
                 values.string[count_values - 1] = string_value;
 
                 cur_state = SPACES_AFTER_ARRAYS_STRING;
@@ -317,11 +354,15 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_STRING_SLASH: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "next_string_slash %c", sym);
             cnt_slash++;
             cur_state = NEXT_STRING;
             break;
         }
         case SPACES_AFTER_ARRAYS_STRING: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_after_arrays_string %c", sym);
             if (sym != ' ' && sym != ',' && sym != ']') {
                 cur_state = ERROR;
             } else if (sym == ',') {
@@ -332,6 +373,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_BEFORE_ARRAYS_STRING: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_before_arrays_string %c", sym);
             if (sym != ' ' && sym != '\"') {
                 cur_state = ERROR;
             } else if (sym == '\"') {
@@ -342,6 +385,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_DIGIT: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "next_digit %c",
+                      sym);
             if (!(sym >= '0' && sym <= '9') && sym != '.' && sym != ' ' &&
                 sym != ']' && sym != ',') {
                 cur_state = ERROR;
@@ -361,8 +406,12 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                 }
                 /*CHECK CAPACITY OF VALUES ARRAY*/
                 count_values++;
-                values.integer = realloc(values.integer,
-                                         sizeof(long long *) * (count_values));
+                if (count_values > 1)
+                    values.integer = realloc(values.integer,
+                                             sizeof(long long) * count_values);
+                else
+                    values.integer = malloc(sizeof(long long) * count_values);
+
                 values.integer[count_values - 1] =
                     strtoll(line + begin_cur_val_pos, NULL, 10);
 
@@ -377,6 +426,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_AFTER_ARRAYS_LONG: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_after_arrays_long %c", sym);
             if (sym != ' ' && sym != ',' && sym != ']') {
                 cur_state = ERROR;
             } else if (sym == ',') {
@@ -387,6 +438,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_BEFORE_ARRAYS_LONG: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_before_arrays_long %c", sym);
             if (sym != ' ' && !(sym >= '0' && sym <= '9')) {
                 cur_state = ERROR;
             } else if (sym >= '0' && sym <= '9') {
@@ -396,6 +449,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_EXPECTED_LONG: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "next_expected_long %c", sym);
             if (!(sym >= '0' && sym <= '9') && sym != ' ' && sym != ']' &&
                 sym != ',') {
                 cur_state = ERROR;
@@ -408,8 +463,11 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                 }
                 /*CHECK CAPACITY OF VALUES ARRAY*/
                 count_values++;
-                values.integer =
-                    realloc(values.integer, sizeof(long long *) * count_values);
+                if (count_values > 1)
+                    values.integer = realloc(values.integer,
+                                             sizeof(long long) * count_values);
+                else
+                    values.integer = malloc(sizeof(long long) * count_values);
                 values.integer[count_values - 1] =
                     strtoll(line + begin_cur_val_pos, NULL, 10);
 
@@ -424,6 +482,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_DOUBLE: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "next_double %c",
+                      sym);
             if (!((sym >= '0' && sym <= '9') || sym == ' ' || sym == ']' ||
                   sym == ',')) {
                 cur_state = ERROR;
@@ -432,8 +492,11 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                 end_cur_val_pos = cur_pos;
                 /*CHECK CAPACITY OF VALUES ARRAY*/
                 count_values++;
-                values.real =
-                    realloc(values.real, sizeof(double *) * count_values);
+                if (count_values > 1)
+                    values.real =
+                        realloc(values.real, sizeof(double) * count_values);
+                else
+                    values.real = malloc(sizeof(double) * count_values);
                 values.real[count_values - 1] =
                     strtod(line + begin_cur_val_pos, NULL);
 
@@ -448,6 +511,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_AFTER_ARRAYS_DOUBLE: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_after_arrays_double %c", sym);
             if (sym != ' ' && sym != ',' && sym != ']') {
                 cur_state = ERROR;
             } else if (sym == ',') {
@@ -458,6 +523,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case SPACES_BEFORE_ARRAYS_DOUBLE: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "spaces_before_arrays_double %c", sym);
             if (sym != ' ' && !(sym >= '0' && sym <= '9')) {
                 cur_state = ERROR;
             } else if (sym >= '0' && sym <= '9') {
@@ -467,6 +534,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_EXPECTED_DOUBLE: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "next_expected_double %c", sym);
             if (!(sym >= '0' && sym <= '9') && sym != '.') {
                 cur_state = ERROR;
             } else if (sym == '.') {
@@ -479,6 +548,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         case NEXT_EXACTLY_DOUBLE: {
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                      "next_exactly_double %c", sym);
             if (!((sym >= '0' && sym <= '9') || sym == ' ' || sym == ']' ||
                   sym == ',')) {
                 cur_state = ERROR;
@@ -486,8 +557,13 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
                 end_cur_val_pos = cur_pos;
                 /*CHECK CAPACITY OF VALUES ARRAY*/
                 count_values++;
-                values.real = realloc(values.real, sizeof(double *) * count_values);
-                values.real[count_values - 1] = strtod(line + begin_cur_val_pos, NULL);
+                if (count_values > 1)
+                    values.real =
+                        realloc(values.real, sizeof(double) * count_values);
+                else
+                    values.real = malloc(sizeof(double) * count_values);
+                values.real[count_values - 1] =
+                    strtod(line + begin_cur_val_pos, NULL);
 
                 if (sym == ' ') {
                     cur_state = SPACES_AFTER_ARRAYS_DOUBLE;
@@ -500,6 +576,7 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             break;
         }
         default:
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "default", sym);
             cur_state = ERROR;
             break;
         }
@@ -512,6 +589,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
     }
     // CHECK IF BROKE AND DIDN'T WROTE VALUE
     if (cur_state == VALUE_DIGIT) {
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                  "ended on value_digit");
         end_cur_val_pos = cur_pos;
         /*DELETE LEFT NULLS*/
         while (line[begin_cur_val_pos] == '0' &&
@@ -519,14 +598,24 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             begin_cur_val_pos++;
         }
         count_values++;
-        values.integer = realloc(values.integer, sizeof(long long *) * count_values);
-        values.integer[count_values - 1] = strtoll(line + begin_cur_val_pos, NULL, 10);
+        if (count_values > 1)
+            values.integer =
+                realloc(values.integer, sizeof(long long) * count_values);
+        else
+            values.integer = malloc(sizeof(long long) * count_values);
+        values.integer[count_values - 1] =
+            strtoll(line + begin_cur_val_pos, NULL, 10);
         cur_state = FINISH;
         break_loop = 1;
     } else if (cur_state == VALUE_DOUBLE) {
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                  "ended on value_double");
         end_cur_val_pos = cur_pos;
         count_values++;
-        values.real = realloc(values.real, sizeof(double *) * count_values);
+        if (count_values > 1)
+            values.real = realloc(values.real, sizeof(double) * count_values);
+        else
+            values.real = malloc(sizeof(double) * count_values);
         values.real[count_values] = strtod(line + begin_cur_val_pos, NULL);
         cur_state = FINISH;
         break_loop = 1;
@@ -569,7 +658,8 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
             free(values.string[i]);
         }
     }
-    free((void *)values.integer);
+    if ((void *)values.integer)
+        free((void *)values.integer);
     *rkey = NULL;
     return -1;
 }
@@ -582,6 +672,7 @@ int parse_line(char *line, char **rkey, ConfigData *rvalues, int *rsize,
     \return 0 if success, 1 if empty file, 2 if no config -1 and sets errno else
 */
 int parse_config(const char *path) {
+    write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "start parsing");
     if (!path) {
         return -1;
     }
@@ -594,27 +685,29 @@ int parse_config(const char *path) {
         return -1;
     }
 
-
     if (access(path, R_OK)) {
         fprintf(stderr, "Have no permissions for file %s\n", path);
         return -1;
     }
-
 
     FILE *config = fopen(path, "r");
 
     if (!config) {
         return -1;
     }
+    write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+              "file successfully opened");
 
-    int check = 0;              // check result of getline
+    int check = 0; // check result of getline
     int cnt_line = 0;
     int is_empty_file = 1;
     while (!feof(config) && (check = getline(&line, &len, config)) &&
            check != -1) {
-        if (line[strlen(line) - 1] == '\n') {
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "read line %d",
+                  cnt_line);
+        /*if (line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = 0;
-        }
+        }*/
         cnt_line++;
         int size = 0;
         ConfigData values;
@@ -632,16 +725,24 @@ int parse_config(const char *path) {
                 return -1;
             }
             /*ELSE WE SKIP COMMENT OR EMPTY STRING*/
+            write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "free line and continue");
             free(line);
+            line = NULL;
             continue;
         }
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                  "line have successfully been parsed %d", size);
         is_empty_file = 0;
         free(line);
-
+        line = NULL;
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "freed line");
         /*TRY TO ADD NEW PARAMETER*/
 
-        ConfigVariable variable = {key,NULL,values, type, size};
+        ConfigVariable variable = {key, NULL, values, type, size};
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "initialized struct");
         define_variable(variable);
+        write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__,
+                  "value %s have been saved", key);
         destroy_variable(&variable);
     }
     fclose(config);
