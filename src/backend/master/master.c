@@ -273,10 +273,12 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
 int main(int argc, char **argv) {
     struct PluginsStack *plugins = init_plugins_stack(100);
 
-    if (init_logger(NULL)) {
+    if (init_logger("./proxy.log", -1)) {
         fprintf(stderr, "Failed to initialize the logger\n");
         goto error_termination;
     }
+    write_log(FILESTREAM, LOG_INFO, __FILE__, __LINE__, "hello");
+
 
     if (create_config_table()) {
         fprintf(stderr, "Failed to initialize the config\n");

@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /*PARSER IMPLEMENTATION*/
 
@@ -588,10 +589,22 @@ int parse_config(const char *path) {
     char *line = NULL;
     size_t len = 0;
 
+    if (access(path, F_OK)) {
+        fprintf(stderr, "File %s not found", path);
+        return -1;
+    }
+
+
+    if (access(path, R_OK)) {
+        fprintf(stderr, "Have no permissions for file %s\n", path);
+        return -1;
+    }
+
+
     FILE *config = fopen(path, "r");
 
     if (!config) {
-        return 2;
+        return -1;
     }
 
     int check = 0;              // check result of getline
@@ -628,9 +641,7 @@ int parse_config(const char *path) {
         /*TRY TO ADD NEW PARAMETER*/
 
         ConfigVariable variable = {key,NULL,values, type, size};
-        if (define_variable(variable)) {
-            printf("parameter %s was setted in flags\n", key);
-        }
+        define_variable(variable);
         destroy_variable(&variable);
     }
     fclose(config);

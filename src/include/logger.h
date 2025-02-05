@@ -41,14 +41,12 @@ enum OutputStream { STDOUT = 1, STDERR, FILESTREAM };
 
 /*!
     It initializes logger's data (path to directory with log files).
-    \param [in] path path to directory with log files. Could be NULL if file
+    \param [in] path path to file with logs. Could be NULL if file
     stream wouldn't be used.
     \param [in] file_size_limit maximal size in Kb of log file
-    \param [in] files_limit maximal count of log files in directory (-1 means
-    infinity). This parameter wouldn't be checked if path is NULL.
     \return 0 if success, -1 and sets errno if error
 */
-int init_logger(const char *path);
+int init_logger(const char *path, int file_size_limit);
 
 /*!
     Function frees logger's data structures
