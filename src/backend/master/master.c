@@ -290,12 +290,14 @@ int parse_args(int argc, char *argv[]) {
            -1) {
         switch (cur_opt) {
         case ('c'): {
-            ConfigVariable variable = {"config", NULL, {(long int *)&optarg}, STRING, 1};
+            ConfigVariable variable = {
+                "config", NULL, {(long int *)&optarg}, STRING, 1};
             set_variable(variable);
             break;
         }
         case ('l'): {
-            ConfigVariable variable = {"logs", NULL, {(long int *)&optarg}, STRING, 1};
+            ConfigVariable variable = {
+                "logs", NULL, {(long int *)&optarg}, STRING, 1};
             set_variable(variable);
             break;
         }
@@ -315,16 +317,18 @@ int parse_envs(void) {
     char *config_path = getenv("PROXY_CONFIG_PATH");
 
     if (config_path) {
-        write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "read path %s", config_path);
-        ConfigVariable variable = {"config", NULL, {(long int *)&config_path}, STRING, 1};
+        write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "read path %s",
+                  config_path);
+        ConfigVariable variable = {
+            "config", NULL, {(long int *)&config_path}, STRING, 1};
         set_variable(variable);
     }
 
     char *log_path = getenv("PROXY_LOG_PATH");
 
     if (log_path) {
-        ConfigVariable variable = {"logs", NULL, {(long int *)&log_path}, STRING, 1};
+        ConfigVariable variable = {
+            "logs", NULL, {(long int *)&log_path}, STRING, 1};
         set_variable(variable);
     }
 
@@ -332,16 +336,17 @@ int parse_envs(void) {
 
     if (plugins_list_env) {
         char *plugins_list = strdup(plugins_list_env);
-        char **plugins = malloc(sizeof(char*));
+        char **plugins = malloc(sizeof(char *));
         int cnt = 0;
         char *plugin = strtok(plugins_list, ",");
         while (plugin) {
             cnt++;
             plugins = realloc(plugins, cnt * sizeof(char *));
-            plugins[cnt-1] = strdup(plugin);
+            plugins[cnt - 1] = strdup(plugin);
         }
         free(plugins_list);
-        ConfigVariable variable = {"plugins", NULL, {(long int *)plugins}, STRING, cnt};
+        ConfigVariable variable = {
+            "plugins", NULL, {(long int *)plugins}, STRING, cnt};
         set_variable(variable);
     }
     return 0;
@@ -354,13 +359,37 @@ int parse_envs(void) {
 int init_config_values(char *exec_path) {
     const char *std_config_path = "../proxy.conf";
     char *config_path = create_path_from_call_dir(exec_path, std_config_path);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "created path %s", config_path);
-    ConfigVariable variable = {"config", NULL, {(long int *)&config_path}, STRING, 1};
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "created path %s",
+              config_path);
+    ConfigVariable variable = {
+        "config", NULL, {(long int *)&config_path}, STRING, 1};
     set_variable(variable);
     write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "set config file variable");
+              "set config file variable");
     free(config_path);
+    return 0;
+}
+
+/*!
+    \brief sets program mode
+    \return 0 if success, -1 else
+*/
+int set_program_mode(char *hardlink) {
+    if (!hardlink)
+        return -1;
+    int start_pos = strlen(hardlink) - 1;
+    while (start_pos >= 0 && hardlink[start_pos] != '/') {
+        start_pos--;
+    }
+    if (!strcmp(hardlink + start_pos + 1, "debug_proxy")) {
+        // set log configuration parameter
+        // and use this constant after that
+        enum OutputStream log_stream = STDOUT;
+        long int log_stream_buf = log_stream;
+        ConfigVariable variable = {
+            "log_stream", NULL, {&log_stream_buf}, INTEGER, 1};
+        set_variable(variable);
+    } // now, in any case program should use log_stream, if this option declared
     return 0;
 }
 
@@ -379,28 +408,27 @@ int main(int argc, char **argv) {
 
     if (argc <= 0)
         goto error_termination;
+
+    set_program_mode(argv[0]);
+
     // set standard values
     init_config_values(argv[0]);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "set_std_values");
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "set_std_values");
     // set config values from command line
     parse_args(argc, argv);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "parsed cmd flags");
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "parsed cmd flags");
 
-    //set config variables from env
+    // set config variables from env
     parse_envs();
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "parsed envs");
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "parsed envs");
 
     // read config
     ConfigVariable config_var = get_variable("config");
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "read config file %s", config_var.data.string[0]);
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "read config file %s",
+              config_var.data.string[0]);
     parse_config(config_var.data.string[0]);
     destroy_variable(&config_var);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-                  "parsed config file");
+    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "parsed config file");
 
     char *greeting_name = "greeting";
     char **plugin_names = &greeting_name;
