@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// STRUCTURES
+// TYPE DECLARATIONS
 
 /*!
     \struct ConfigNode
@@ -18,7 +18,7 @@ typedef struct ConfigNode {
 
 /*!
     \struct GroupsTableData
-    \brief table of parmeter groups
+    \brief table of parameter groups
 
     Hash table of configuration parameters.
 */
@@ -49,6 +49,8 @@ ConfigVariable get_variable(const char *name);
 int set_variable(const ConfigVariable variable);
 
 bool does_variable_exist(const char *name);
+
+// FUNCTION DEFINITIONS
 
 /*!
     \brief hash string
@@ -158,7 +160,6 @@ ConfigVariable copy_variable(const ConfigVariable var) {
     }
 
     switch (result.type) {
-
     case UNDEFINED: {
         result.data = (ConfigData)(int64_t *)NULL;
         break;
@@ -191,28 +192,25 @@ ConfigVariable copy_variable(const ConfigVariable var) {
 }
 
 int define_variable(const ConfigVariable variable) {
-    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "hashed name is %s %d",
-              variable.name, g_config.size);
     unsigned long hash = hash_string(variable.name) % g_config.size;
 
     // check and push
-    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "start saving variable");
+
     ConfigNode *prev_node = g_config.table[hash];
-    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "checked hash table");
     if (!prev_node) {
         g_config.table[hash] = malloc(sizeof(ConfigNode));
         g_config.table[hash]->next = NULL;
         g_config.table[hash]->variable = copy_variable(variable);
         return 0;
     }
-    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "search place");
+
     while (prev_node->next) {
         if (!strcmp(prev_node->variable.name, variable.name))
             return -1;
     }
     if (!strcmp(prev_node->variable.name, variable.name))
-            return -1;
-    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "found place");
+        return -1;
+
     ConfigNode *new_node = malloc(sizeof(ConfigNode));
     new_node->next = NULL;
     new_node->variable = copy_variable(variable);
