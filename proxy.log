@@ -1,0 +1,8 @@
+greeting initialized
+Hello, world!
+greeting finished
+_std_values
+2025-2-7T13:8:54(+07) master.c 436 39761 | DEBUG: parsed cmd flags
+2025-2-7T13:8:54(+07) master.c 440 39761 | DEBUG: parsed envs
+2025-2-7T13:8:54(+07) master.c 444 39761 | DEBUG: read config file ./install/../proxy.conf
+2025-2-7T13:8:54(+07) master.c 448 39761 | DEBUG: parsed config file

@@ -1,3 +1,15 @@
+/*!
+    \file logger.c
+    \brief Logger implementation
+
+    This file contains logger's implementation.
+
+    Logger is the singleton. Therefore init_logger must return
+    -1 if logger already exists
+
+    Logger uses wrapper of time()
+*/
+
 #include "../../include/logger.h"
 #include "../../include/my_time.h"
 #include <errno.h>
@@ -8,6 +20,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+// TYPES DECLARATION
 
 /*!
     \struct LoggerData
@@ -20,9 +34,22 @@ struct LoggerData {
     int is_initialized;
 };
 
+// GLOBALS
+
 struct LoggerData logger_state = {NULL, NULL, 0, 0}; // singleton
 
+// FUNCTION DECLARATIONS
+
+int init_logger(const char *path, int file_size_limit);
+void write_log(enum OutputStream stream, enum LogLevel level,
+               const char *filename, int line_number, const char *format, ...);
+void fini_logger(void);
+
+
+//FUNCTION DEFINITIONS
+
 int init_logger(const char *path, int file_size_limit) {
+    //validate input
     if (logger_state.is_initialized)
         return -1;
 
@@ -56,6 +83,7 @@ int init_logger(const char *path, int file_size_limit) {
 
 void write_log(enum OutputStream stream, enum LogLevel level,
                const char *filename, int line_number, const char *format, ...) {
+    //choose filestream
     FILE *log_file_stream = stderr;
     switch (stream) {
     case STDERR: {
@@ -75,10 +103,11 @@ void write_log(enum OutputStream stream, enum LogLevel level,
     }
     }
 
+    //write message in loop for case when log message overflows log file
     bool success_write = false;
-    while (!success_write) {
+    for  (int cnt_tries = 0; !success_write && cnt_tries < 1; cnt_tries++) {
+        //choose log level
         const char *msg_lvl;
-
         switch (level) {
         case LOG_DEBUG:
             msg_lvl = "DEBUG";
@@ -99,6 +128,7 @@ void write_log(enum OutputStream stream, enum LogLevel level,
             errno = EBADMSG;
             return;
         }
+        //write header of log
         time_t mytime = get_time();
         struct tm *now = localtime(&mytime);
         fprintf(log_file_stream,
@@ -106,6 +136,7 @@ void write_log(enum OutputStream stream, enum LogLevel level,
                 now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min,
                 now->tm_sec, now->tm_zone, filename, line_number, getpid(),
                 msg_lvl);
+        //write body of log
         va_list ptr;
         va_start(ptr, format);
         vfprintf(log_file_stream, format, ptr);
@@ -115,6 +146,7 @@ void write_log(enum OutputStream stream, enum LogLevel level,
         success_write = true;
         if (stream == FILESTREAM) {
             fflush(logger_state.session);
+            //check size of file
             if (logger_state.file_size_limit > 0 &&
                 ftell(logger_state.session) > logger_state.file_size_limit) {
                 success_write = false;

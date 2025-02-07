@@ -705,9 +705,9 @@ int parse_config(const char *path) {
            check != -1) {
         write_log(STDERR, LOG_DEBUG, "parser.c", __LINE__, "read line %d",
                   cnt_line);
-        /*if (line[strlen(line) - 1] == '\n') {
+        if (line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = 0;
-        }*/
+        }
         cnt_line++;
         int size = 0;
         ConfigData values;

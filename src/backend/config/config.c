@@ -177,8 +177,6 @@ ConfigVariable copy_variable(const ConfigVariable var) {
         break;
     }
     case STRING: {
-        write_log(STDERR, LOG_DEBUG, "config.c", __LINE__,
-                  "aaaaaaaaaaaaaaaaaa %s", var.data.string[0]);
         result.data =
             (ConfigData)(char **)malloc(result.count * sizeof(char *));
         for (int i = 0; i < result.count; i++) {
@@ -240,15 +238,11 @@ ConfigVariable get_variable(const char *name) {
 
 int set_variable(const ConfigVariable variable) {
     unsigned long hash = hash_string(variable.name) % g_config.size;
-    write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "hashed %s",
-              variable.data.string[0]);
     ConfigNode *prev_node = g_config.table[hash];
     if (!prev_node) {
         g_config.table[hash] = malloc(sizeof(ConfigNode));
         g_config.table[hash]->next = NULL;
         g_config.table[hash]->variable = copy_variable(variable);
-        write_log(STDERR, LOG_DEBUG, "config.c", __LINE__, "copied var %s",
-                  g_config.table[hash]->variable.data.string[0]);
         return 0;
     }
 

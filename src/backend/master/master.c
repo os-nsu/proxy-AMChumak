@@ -1,17 +1,16 @@
 #include "../../include/master.h"
 #include "../../include/config.h"
 #include "../../include/logger.h"
+#include <stdint.h>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/*HOOKS DEFINITIONS*/
-Hook executor_start_hook = NULL;
-Hook executor_end_hook = NULL;
 
-/*STRUCTS*/
+
+// TYPE DECLARATIONS
 
 /*!
     \struct Plugin
@@ -32,7 +31,14 @@ struct PluginsStack {
     int max_idx;
 };
 
-/*FUNCTION DECLARATIONS*/
+// GLOBALS
+
+Hook executor_start_hook = NULL;
+Hook executor_end_hook = NULL;
+
+
+// FUNCTION DECLARATIONS
+
 struct PluginsStack *init_plugins_stack(int boot_size);
 void close_plugins(struct PluginsStack *stack);
 int push_plugin(struct PluginsStack *stack, void *plugin, char *name);
@@ -44,8 +50,14 @@ char *mk_plugin_path(const char *file_name, const char *plugins_dir,
                      const char *arg0);
 int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
                  struct PluginsStack *stack, const char *arg0);
+int parse_args(int argc, char *argv[]);
+int parse_envs(void);
+int init_config_values(char *exec_path);
+int set_program_mode(char *hardlink);
+int main(int argc, char **argv);
 
-/*FUNCTION DEFINITIONS*/
+
+// FUNCTION DEFINITIONS
 
 /*!
     \brief Initializes stack for plugins
@@ -61,6 +73,7 @@ struct PluginsStack *init_plugins_stack(int boot_size) {
     return stack;
 }
 
+
 /*!
     \brief Finishes all plugins and closes handles
     \param[in] stack Pointer to stack
@@ -74,6 +87,7 @@ void close_plugins(struct PluginsStack *stack) {
         dlclose(stack->plugins[i].handle);
     }
 }
+
 
 /*!
     \brief Pushes plugin to stack
@@ -94,6 +108,7 @@ int push_plugin(struct PluginsStack *stack, void *plugin, char *name) {
     return 0;
 }
 
+
 /*!
     \brief pop plugin from stack
     Pops plugin from stack
@@ -113,6 +128,7 @@ struct Plugin pop_plugin(struct PluginsStack *stack) {
     return stack->plugins[stack->max_idx--];
 }
 
+
 /*!
     \brief gets plugin by it's name
     \param[in] stack Pointer to plugin stack
@@ -130,6 +146,7 @@ struct Plugin get_plugin(struct PluginsStack *stack, char *name) {
     }
     return result;
 }
+
 
 /*!
     \brief creates path from directory, where executable was executed to
@@ -159,6 +176,7 @@ char *get_path_from_arg0(const char *arg0) {
     return path;
 }
 
+
 /*!
     \brief creates path from directory, where executable was executed
     \param [in] arg0 first in arguments list for main
@@ -179,6 +197,7 @@ char *create_path_from_call_dir(const char *arg0, const char *path) {
     free(exec_dir);
     return result_path;
 }
+
 
 /*!
     \brief creates path to plugin
@@ -214,6 +233,7 @@ char *mk_plugin_path(const char *file_name, const char *plugins_dir,
     return plugin_path;
 }
 
+
 /*!
     \brief Loads plugins
     \param[in] plugins_list array of plugin names
@@ -225,6 +245,9 @@ char *mk_plugin_path(const char *file_name, const char *plugins_dir,
 */
 int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
                  struct PluginsStack *stack, const char *arg0) {
+    if (!plugins_list) {
+        return -1;
+    }
     void (*init_plugin)(void);
     ///< this function will be executed for each contrib library
     void *handle;
@@ -271,6 +294,7 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
     return 0;
 }
 
+
 /*!
     \brief Loads plugins
     \param[in] argc arguments count
@@ -308,6 +332,7 @@ int parse_args(int argc, char *argv[]) {
     }
     return 0;
 }
+
 
 /*!
     \brief gets config parameters from env
@@ -352,6 +377,7 @@ int parse_envs(void) {
     return 0;
 };
 
+
 /*!
     \brief initializes standard values
     \return 0 if success, -1 else
@@ -359,16 +385,20 @@ int parse_envs(void) {
 int init_config_values(char *exec_path) {
     const char *std_config_path = "../proxy.conf";
     char *config_path = create_path_from_call_dir(exec_path, std_config_path);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "created path %s",
-              config_path);
     ConfigVariable variable = {
         "config", NULL, {(long int *)&config_path}, STRING, 1};
     set_variable(variable);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__,
-              "set config file variable");
     free(config_path);
+
+    enum OutputStream log_stream = STDERR;
+    long int log_stream_buf = log_stream;
+    ConfigVariable log_stream_var = {
+        "log_stream", NULL, {&log_stream_buf}, INTEGER, 1};
+    set_variable(log_stream_var);
+
     return 0;
 }
+
 
 /*!
     \brief sets program mode
@@ -377,21 +407,32 @@ int init_config_values(char *exec_path) {
 int set_program_mode(char *hardlink) {
     if (!hardlink)
         return -1;
+
+    // get file name
     int start_pos = strlen(hardlink) - 1;
     while (start_pos >= 0 && hardlink[start_pos] != '/') {
         start_pos--;
     }
+
+    // if "debug_proxy", then use stdout for log and set flag for program_mode
+    int64_t program_mode = 0;
     if (!strcmp(hardlink + start_pos + 1, "debug_proxy")) {
-        // set log configuration parameter
-        // and use this constant after that
+
         enum OutputStream log_stream = STDOUT;
         long int log_stream_buf = log_stream;
         ConfigVariable variable = {
             "log_stream", NULL, {&log_stream_buf}, INTEGER, 1};
         set_variable(variable);
-    } // now, in any case program should use log_stream, if this option declared
+
+        program_mode = 1;
+    }
+
+    ConfigVariable program_mode_var = {
+        "program_mode", NULL, {&program_mode}, INTEGER, 1};
+    set_variable(program_mode_var);
     return 0;
 }
+
 
 int main(int argc, char **argv) {
     struct PluginsStack *plugins = init_plugins_stack(100);
@@ -409,31 +450,35 @@ int main(int argc, char **argv) {
     if (argc <= 0)
         goto error_termination;
 
-    set_program_mode(argv[0]);
-
     // set standard values
     init_config_values(argv[0]);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "set_std_values");
+
+    set_program_mode(argv[0]);
+
+    ConfigVariable log_stream = get_variable("log_stream");
+
+    write_log((enum OutputStream)log_stream.data.integer[0], LOG_DEBUG, "master.c", __LINE__, "set_std_values");
     // set config values from command line
     parse_args(argc, argv);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "parsed cmd flags");
+    write_log((enum OutputStream)log_stream.data.integer[0], LOG_DEBUG, "master.c", __LINE__, "parsed cmd flags");
 
     // set config variables from env
     parse_envs();
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "parsed envs");
+    write_log((enum OutputStream)log_stream.data.integer[0], LOG_DEBUG, "master.c", __LINE__, "parsed envs");
 
     // read config
     ConfigVariable config_var = get_variable("config");
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "read config file %s",
+    write_log((enum OutputStream)log_stream.data.integer[0], LOG_DEBUG, "master.c", __LINE__, "read config file %s",
               config_var.data.string[0]);
     parse_config(config_var.data.string[0]);
     destroy_variable(&config_var);
-    write_log(STDERR, LOG_DEBUG, "master.c", __LINE__, "parsed config file");
+    write_log((enum OutputStream)log_stream.data.integer[0], LOG_DEBUG, "master.c", __LINE__, "parsed config file");
 
-    char *greeting_name = "greeting";
-    char **plugin_names = &greeting_name;
+    ConfigVariable plugin_names = get_variable("plugins");
 
-    load_plugins(plugin_names, 1, NULL, plugins, argv[0]);
+
+    load_plugins(plugin_names.data.string, 1, NULL, plugins, argv[0]);
+    destroy_variable(&plugin_names);
 
     if (executor_start_hook)
         executor_start_hook();
