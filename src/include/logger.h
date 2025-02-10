@@ -27,6 +27,7 @@
 #ifndef  LOGGER_H
 #define LOGGER_H
 
+
 enum LogLevel {
     LOG_DEBUG = 1, ///< low level messages
     LOG_INFO,      ///< traces and meta information (could be substitution for

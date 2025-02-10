@@ -277,6 +277,9 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
             return -1;
         }
 
+        //log successful 
+        
+
         init_plugin();
     }
     return 0;
@@ -367,18 +370,38 @@ int parse_envs(void) {
     \return 0 if success, -1 else
 */
 int init_config_values(char *exec_path) {
-    // set boot value to path to config
+    // set boot values for:
+    // path to config
     const char *std_config_path = "../proxy.conf";
     char *config_path = create_path_from_call_dir(exec_path, std_config_path);
 
     ConfigVariable variable = {
-        "config", NULL, {(long int *)&config_path}, STRING, 1};
+        "config", NULL, {.string = &config_path}, STRING, 1};
     set_variable(variable);
 
     free(config_path);
 
-    // set boot value to log stream
-    enum OutputStream log_stream = STDERR;
+    // path to log file
+
+    const char *std_logger_path = "../proxy.log";
+    char *logger_path = create_path_from_call_dir(exec_path, std_logger_path);
+
+    ConfigVariable logger_path_var = {
+        "logs", NULL, {.string = &logger_path}, STRING, 1};
+    set_variable(logger_path_var);
+
+    free(logger_path);
+
+    // log file limit
+
+    long int log_file_limit = -1;
+
+    ConfigVariable log_file_limit_var = {
+        "log_file_size_limit", NULL, {&log_file_limit}, INTEGER, 1};
+    set_variable(log_file_limit_var);
+
+    // log stream
+    enum OutputStream log_stream = FILESTREAM;
     long int log_stream_buf = log_stream;
 
     ConfigVariable log_stream_var = {
@@ -427,11 +450,6 @@ int main(int argc, char **argv) {
 
     struct PluginsStack *plugins = init_plugins_stack(100);
 
-    if (init_logger("./proxy.log", -1)) {
-        fprintf(stderr, "Failed to initialize the logger\n");
-        goto error_termination;
-    }
-
     if (create_config_table()) {
         fprintf(stderr, "Failed to initialize the config\n");
         goto error_termination;
@@ -445,7 +463,7 @@ int main(int argc, char **argv) {
 
     set_program_mode(argv[0]);
 
-    ConfigVariable log_stream = get_variable("log_stream");
+    // ConfigVariable log_stream = get_variable("log_stream");
 
     // set config values from command line
     parse_args(argc, argv);
@@ -457,6 +475,17 @@ int main(int argc, char **argv) {
     ConfigVariable config_var = get_variable("config");
     parse_config(config_var.data.string[0]);
     destroy_variable(&config_var);
+
+    // initialize logger
+
+    ConfigVariable logger_path_var = get_variable("logs");
+    ConfigVariable log_file_limit_var = get_variable("log_file_size_limit");
+
+    if (init_logger(logger_path_var.data.string[0],
+                    log_file_limit_var.data.integer[0])) {
+        fprintf(stderr, "Failed to initialize the logger\n");
+        goto error_termination;
+    }
 
     // load plugins
     ConfigVariable plugin_names = get_variable("plugins");
