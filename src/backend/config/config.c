@@ -1,5 +1,4 @@
 #include "../../include/config.h"
-#include "../../include/logger.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
