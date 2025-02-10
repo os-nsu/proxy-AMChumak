@@ -256,16 +256,40 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
                 \tdlopen: %s\n \
                 \tcheck plugins folder or rename library\n",
                     plugin_path, error);
-            free(stack);
             return -1;
         }
-        error = dlerror();
 
         /*PUSH HANDLE TO PLUGIN STACK*/
         push_plugin(stack, handle, plugins_list[i]);
 
-        const char *func_name = "init";
-        /*EXECUTE PLUGIN*/
+        /*CHECK SYMBOLS*/
+        const char *func_name = "fini";
+        dlsym(handle, func_name);
+
+        error = dlerror();
+        if (error != NULL) {
+            fprintf(
+                stderr,
+                "Library couldn't execute %s.\n\tLibrary's name is %s. Dlsym "
+                "message: %s\n\tcheck plugins folder or rename library\n",
+                func_name, plugins_list[i], error);
+            return -1;
+        }
+
+        func_name = "name";
+        dlsym(handle, func_name);
+
+        error = dlerror();
+        if (error != NULL) {
+            fprintf(
+                stderr,
+                "Library couldn't execute %s.\n\tLibrary's name is %s. Dlsym "
+                "message: %s\n\tcheck plugins folder or rename library\n",
+                func_name, plugins_list[i], error);
+            return -1;
+        }
+
+        func_name = "init";
         init_plugin = (void (*)(void))dlsym(handle, func_name);
 
         error = dlerror();
@@ -275,7 +299,6 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
                 "Library couldn't execute %s.\n\tLibrary's name is %s. Dlsym "
                 "message: %s\n\tcheck plugins folder or rename library\n",
                 func_name, plugins_list[i], error);
-            free(stack);
             return -1;
         }
 
@@ -329,6 +352,7 @@ int parse_args(int argc, char *argv[]) {
     }
     return 0;
 }
+
 
 /*!
     \brief gets config parameters from env
@@ -512,10 +536,12 @@ int main(int argc, char **argv) {
 
     // load plugins
     ConfigVariable plugin_names = get_variable("plugins");
-    load_plugins(plugin_names.data.string, 1, NULL, plugins, argv[0]);
+    if (load_plugins(plugin_names.data.string, 1, NULL, plugins, argv[0]) )
+        goto error_abort;
     destroy_variable(&plugin_names);
 
     // MAIN LOOP
+
 
     if (executor_start_hook)
         executor_start_hook();
@@ -526,6 +552,7 @@ int main(int argc, char **argv) {
 
 error_termination:
     close_plugins(plugins);
+error_abort:
     free(plugins);
-    return 1;
+    return -1;
 }
