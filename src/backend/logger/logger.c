@@ -74,10 +74,9 @@ int init_logger(const char *path, int file_size_limit) {
     }
 
     // create structure
-    logger_state.path = (char *)calloc((strlen(path) + 1), sizeof(char));
-    strcpy(logger_state.path, path);
+    logger_state.path = strdup(path);
     logger_state.is_initialized = 1;
-
+    printf("log file is %s\n", logger_state.path);
     return 0;
 }
 

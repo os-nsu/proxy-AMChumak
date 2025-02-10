@@ -241,6 +241,8 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
     void *handle;
     char *error;
 
+    ConfigVariable log_stream_var = get_variable("log_stream");
+
     for (int i = 0; (i < plugins_count); ++i) {
         /*TRY TO LOAD .SO FILE*/
 
@@ -277,11 +279,16 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
             return -1;
         }
 
-        //log successful 
-        
+        // log successful
+
+        write_log(log_stream_var.data.integer[0], LOG_INFO, __FILE_NAME__, __LINE__,
+                  "Plugin %s loaded", plugin_path);
+
 
         init_plugin();
     }
+
+    destroy_variable(&log_stream_var);
     return 0;
 }
 
@@ -463,23 +470,39 @@ int main(int argc, char **argv) {
 
     set_program_mode(argv[0]);
 
-    // ConfigVariable log_stream = get_variable("log_stream");
-
     // set config values from command line
     parse_args(argc, argv);
 
     // set config variables from env
     parse_envs();
 
+    // initialize logger
+
+    ConfigVariable logger_path_var = get_variable("logs");
+    ConfigVariable log_file_limit_var = get_variable("log_file_size_limit");
+
+    if (init_logger(logger_path_var.data.string[0],
+                    log_file_limit_var.data.integer[0])) {
+        fprintf(stderr, "Failed to initialize the logger\n");
+        goto error_termination;
+    }
+
+    destroy_variable(&logger_path_var);
+    destroy_variable(&log_file_limit_var);
+
+    // ConfigVariable log_stream = get_variable("log_stream");
+
     // read config
     ConfigVariable config_var = get_variable("config");
     parse_config(config_var.data.string[0]);
     destroy_variable(&config_var);
 
-    // initialize logger
+    // reinitialize logger
 
-    ConfigVariable logger_path_var = get_variable("logs");
-    ConfigVariable log_file_limit_var = get_variable("log_file_size_limit");
+    fini_logger();
+
+    logger_path_var = get_variable("logs");
+    log_file_limit_var = get_variable("log_file_size_limit");
 
     if (init_logger(logger_path_var.data.string[0],
                     log_file_limit_var.data.integer[0])) {

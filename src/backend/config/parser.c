@@ -644,6 +644,9 @@ int parse_config(const char *path) {
         return -1;
     }
 
+    ConfigVariable log_stream_var = get_variable("log_stream");
+    write_log(log_stream_var.data.integer[0], LOG_INFO, __FILE_NAME__, __LINE__, "Start read config file %s", path);
+
     int check = 0; // check result of getline
     int cnt_line = 0;
     int is_empty_file = 1;
@@ -685,9 +688,13 @@ int parse_config(const char *path) {
         define_variable(variable);
         destroy_variable(&variable);
     }
+
+    write_log(log_stream_var.data.integer[0], LOG_INFO, __FILE_NAME__, __LINE__, "Finish read config file %s", path);
+
     fclose(config);
     if (is_empty_file) {
         return 1;
     }
+    destroy_variable(&log_stream_var);
     return 0;
 }
