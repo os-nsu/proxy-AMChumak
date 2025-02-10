@@ -291,7 +291,8 @@ int main(int argc, char **argv) {
     char **plugin_names = &greeting_name;
 
 
-    load_plugins(plugin_names, 1, NULL, plugins, argv[0]);
+    if (load_plugins(plugin_names, 1, NULL, plugins, argv[0]))
+        goto error_termination;
 
     if (executor_start_hook)
         executor_start_hook();
