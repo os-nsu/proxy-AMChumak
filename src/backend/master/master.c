@@ -260,7 +260,6 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
                 "Library couldn't execute %s.\n\tLibrary's name is %s. Dlsym "
                 "message: %s\n\tcheck plugins folder or rename library\n",
                 func_name, plugins_list[i], error);
-            free(stack);
             return -1;
         }
 
