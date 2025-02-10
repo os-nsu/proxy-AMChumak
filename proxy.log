@@ -1,0 +1,3 @@
+2025-2-10T12:14:9(+07) parser.c 648 29454 | INFO: Start read config file ./install/../proxy.conf
+2025-2-10T12:14:9(+07) parser.c 692 29454 | INFO: Finish read config file ./install/../proxy.conf
+2025-2-10T12:14:9(+07) master.c 284 29454 | INFO: Plugin ./install/./plugins/greeting.so loaded

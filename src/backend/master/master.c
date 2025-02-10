@@ -242,7 +242,6 @@ int load_plugins(char **plugins_list, int plugins_count, char *plugins_dir,
                 \tdlopen: %s\n \
                 \tcheck plugins folder or rename library\n",
                     plugin_path, error);
-            free(stack);
             return -1;
         }
         error = dlerror();
