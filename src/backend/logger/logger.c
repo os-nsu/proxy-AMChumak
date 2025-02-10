@@ -3,7 +3,7 @@
 
 int is_logger_initialized = 0;
 
-int init_logger(char *path, long file_size_limit, int files_limit) {
+int init_logger(char *path, long file_size_limit) {
     if (is_logger_initialized)
         return -1;
     is_logger_initialized = 1;
